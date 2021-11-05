@@ -1,0 +1,12 @@
+n1 Person
+n2 Person
+n3 Tag
+n4 Post
+n5 Post
+e1 knows
+e2 knows
+e3 hasFollower
+e4 hasTag
+e5 likes
+e6 dislikes
+e7 likes

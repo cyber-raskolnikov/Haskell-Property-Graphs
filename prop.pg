@@ -1,0 +1,9 @@
+firstName String
+lastName String
+country String
+gender String
+content String
+transport String
+age Int
+wealth Double
+canSing Bool
