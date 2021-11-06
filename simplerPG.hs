@@ -1,6 +1,7 @@
 import System.IO
 import Data.List 
 import Control.Monad
+import Control.Concurrent
 
 {-|
         NOT-SO-RANDOM NOTES:
@@ -15,7 +16,9 @@ import Control.Monad
         but this violates the principle of aggregating the IO action into the main function
         also this forces us to return IO PG
         
+        -> regulate what if value is None
         
+        -> Date is to be implemented!!!!!!!!!
 -}
 
 -------------------------------
@@ -30,7 +33,7 @@ type Identificator = String
 
 type Node = Identificator
 
-type Edge =  Identificator
+type Edge =  (Identificator,Node,Node)
 
 type PropertyAndValue = (Identificator,Property,Val)
 
@@ -44,15 +47,9 @@ type PG = ([Node],[Edge],[ElementAndLabel],[PropertyAndValue])
 
 data Val = IntValue Int | DecValue Double | Text String | Binary Bool -- | Date
 
---data ElementAndLabel = (Node,Label) | (Edge,Label)
-
 -------------------------------
 -----INSTANCE DECLARATIONS-----
 -------------------------------
-
---instance Show PGEntry where
---        show (NodeEntry node label _) = " Node: " ++ node ++ " label: " ++ label
---        show (EdgeEntry (n1,n2) label _) = " Edge going from " ++ n1 ++ " to " ++ n2 ++ " with label " ++ label
 
 instance Show Val where
         show (IntValue int) = show int
@@ -66,18 +63,27 @@ instance Show Val where
 
 setify :: [String] -> [String]
 
+-- given a list of strings
+-- returns the list ordered and without repeated elements
+
 setify = map head . group . sort
 
 --
 
 getTreatedVandE :: [[String]] -> ([Node],[Edge])
 
+-- given the contents of the rho file lines separated by words
+-- returns the list of nodes and the list of edges defined in it
+
 getTreatedVandE rhoLines = ([node | [_,node,_] <- rhoLines] ++ [node | [_,_,node] <- rhoLines],
-                           [edge | [edge,_,_] <- rhoLines])
+                           [(edge,n1,n2) | [edge,n1,n2] <- rhoLines])
 
 --
 
 getLambdaContents :: [[String]] -> [ElementAndLabel]
+
+-- given the contents of the lambda file lines separated by words
+-- returns the list of tuples (element and its label)
 
 getLambdaContents lambdaLines = [(element,label) | [element,label] <- lambdaLines]
 
@@ -85,34 +91,127 @@ getLambdaContents lambdaLines = [(element,label) | [element,label] <- lambdaLine
 
 getVal :: String -> String -> Val
 
---getVal valtype value = Text value
+-- given a read value and its read type
+-- returns the value wrapped in the corresponding type
+
 getVal "Int" value = IntValue (read value :: Int)
 getVal "Double" value = DecValue (read value :: Double)
 getVal "Bool" value = Binary (read value :: Bool)
+getVal "Date" value = Text value        -- DATE CASE
 getVal _ value = Text value
 
 --
 
-getValType :: [[String]] -> String -> String
+dictLookup :: [[String]] -> String -> String
 
-getValType [] _ = "error"
-getValType ([propname,proptype]:rest) property
+-- given a list of lists of 2 strings a string S to search
+-- returns the second element of the list whose first element is S
+
+dictLookup [] _ = ""
+dictLookup ([propname,proptype]:rest) property
         | propname == property = proptype
-        | otherwise = getValType rest property
+        | otherwise = dictLookup rest property
 --
 
 getPropAndValues :: [[String]] -> [[String]] -> [PropertyAndValue]
 
+-- given the contents of the sigma and prop file
+-- returns a list of tuples (property name, correctly typed value)
+
 getPropAndValues sigma prop = [(identificator,property,(getVal valtype value)) 
                                 | [identificator,property,value] <- sigma ,
-                                let valtype = getValType prop property]
+                                let valtype = dictLookup prop property]
+                                
+--
 
+labelLookup :: Identificator -> [ElementAndLabel] -> Label
 
+-- given an identificator and the list that maps ids and labels
+-- returns the corresponding label to the identificator
+
+labelLookup _ [] = ""
+labelLookup id ((currId,currLab):rest)
+        | id == currId = currLab
+        | otherwise = labelLookup id rest
+        
+--
+        
+propsLookup :: Identificator -> [PropertyAndValue] -> [(Property,Val)]          -- ESTO ES SIGMA PRIMA
+
+-- given an indentificator and the list that maps ids to their properties & values
+-- returns the list of tuples (property,value) corresponding to the given id
+
+propsLookup _ [] = []
+propsLookup id ((currId,currProp,currVal):rest)
+                | id == currId = (currProp,currVal) : (propsLookup id rest)
+                | otherwise = (propsLookup id rest)
+
+--
+
+getNodeInfo :: [ElementAndLabel] -> [PropertyAndValue] -> Node -> (Node,Label,[(Property,Val)])
+
+-- given the functions lambda and sigma and a node
+-- returns the complete information contained about that node
+
+getNodeInfo labels properties node = (node,nodeLabel,nodeProps)
+                                where 
+                                nodeLabel = labelLookup node labels
+                                nodeProps = propsLookup node properties
+                                
+-- 
+                               
+getEdgeInfo :: [ElementAndLabel] -> [PropertyAndValue] -> Edge -> (Edge,Label,[(Property,Val)])
+
+-- given the functions lambda and sigma and an edge
+-- returns the complete information contained about that edge
+
+getEdgeInfo labels properties (id,n1,n2) = ((id,n1,n2),edgeLabel,edgeProps)
+                                where
+                                edgeLabel = labelLookup id labels
+                                edgeProps = propsLookup id properties
+                                
+--
+                                
+getStrProps :: [(Property,Val)] -> String
+
+-- given a list of tuples (property,value)
+-- returns the contents of the list in a string properly formatted
+
+getStrProps [] = ""
+getStrProps ((p,v):rest) = "(" ++ (id p) ++ "," ++ (show v) ++ ")" ++ (getStrProps rest)
+
+--
+                                
+showNodeInfo :: (Node,Label,[(Property,Val)]) -> IO ()
+
+-- given all the properly formatted information about a node
+-- prints it in the correct format specified by the practice task
+
+showNodeInfo (node,label,props) = do
+                                let strProps = getStrProps props
+                                let line = node ++ " [" ++ label ++ "] {" ++ strProps ++ "}"
+                                putStrLn (id line) 
+                                
+--
+
+showEdgeInfo :: (Edge,Label,[(Property,Val)]) -> IO ()
+
+-- given all the properly formatted information about an edge
+-- prints it in the correct format specified by the practice task
+
+showEdgeInfo ((name,n1,n2),label,props) = do
+                                        let strProps = getStrProps props
+                                        let line = "(" ++ n1 ++ ")" ++ " -- " ++ name ++ "[" ++ label ++ "] --> " ++
+                                                   "(" ++ n2 ++ ") {" ++ strProps ++ "}"
+                                        putStrLn (id line)
 -------------------------------
---------MAIN FUNCTIONS---------
+---------PG FUNCTIONS----------
 -------------------------------
 
-populate :: String -> String -> String -> String -> IO PG--String -> String -> String -> String -> PG
+populate :: String -> String -> String -> String -> IO PG
+
+-- given 4 properly formatted rho, lambda, sigma and prop filenames
+-- it returns an IO Property Graph containing the information codified in the files
 
 populate rhofilename lambdafilename sigmafilename propfilename  = do
                                 rhocontents <- readFile rhofilename
@@ -129,9 +228,94 @@ populate rhofilename lambdafilename sigmafilename propfilename  = do
                                 let sigmalines = lines sigmacontents
                                 let proplines = lines propcontents
                                 let propertiesAndValues = getPropAndValues (map words sigmalines) (map words proplines)
-                                --print(nodesSet)
-                                --print(edges)
-                                --print(lambda)
-                                --print(propertiesAndValues)
+
                                 return (nodesSet, edges, lambda, propertiesAndValues)
                                 
+addEdge :: PG -> Identificator -> Node -> Node -> PG
+
+-- given a PG, an unused edge id. and n1,n2 existing nodes where the edge n1->n2 does not exist
+-- it returns the original PG with a new edge named id. from the first node to the second
+
+addEdge (nodes,edges,l,p) id n1 n2 = (nodes,edgesPlus,l,p)
+                                where edgesPlus = edges ++ [(id,n1,n2)]
+
+showGraph :: PG -> IO ()
+
+-- given a PG,
+-- prints its contents formatted as requested by the practice task
+
+showGraph (nodes,edges,labels,properties) = do
+                                putStrLn ""
+
+                                let nodesInfo = map (getNodeInfo labels properties) nodes
+                                mapM showNodeInfo nodesInfo     -- MONAD MAP
+                                
+                                let edgesInfo = map (getEdgeInfo labels properties) edges
+                                mapM showEdgeInfo edgesInfo     -- MONAD MAP
+                                
+                                putStrLn ""
+                                
+-------------------------------
+--------QUERY FUNCTIONS--------
+-------------------------------
+
+-------------------------------
+---------MAIN FUNCTION---------
+-------------------------------
+
+main :: IO ()
+
+main = do
+        putStrLn ""
+        putStrLn "██████╗░██████╗░░█████╗░██████╗░███████╗██████╗░████████╗██╗░░░██╗  ░██████╗░██████╗░░█████╗░██████╗░██╗░░██╗"
+        putStrLn "██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗╚══██╔══╝╚██╗░██╔╝  ██╔════╝░██╔══██╗██╔══██╗██╔══██╗██║░░██║"
+        putStrLn "██████╔╝██████╔╝██║░░██║██████╔╝█████╗░░██████╔╝░░░██║░░░░╚████╔╝░  ██║░░██╗░██████╔╝███████║██████╔╝███████║"
+        putStrLn "██╔═══╝░██╔══██╗██║░░██║██╔═══╝░██╔══╝░░██╔══██╗░░░██║░░░░░╚██╔╝░░  ██║░░╚██╗██╔══██╗██╔══██║██╔═══╝░██╔══██║"
+        putStrLn "██║░░░░░██║░░██║╚█████╔╝██║░░░░░███████╗██║░░██║░░░██║░░░░░░██║░░░  ╚██████╔╝██║░░██║██║░░██║██║░░░░░██║░░██║"
+        putStrLn "╚═╝░░░░░╚═╝░░╚═╝░╚════╝░╚═╝░░░░░╚══════╝╚═╝░░╚═╝░░░╚═╝░░░░░░╚═╝░░░  ░╚═════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝░░╚═╝"
+        putStrLn ""
+        
+        putStrLn "Add the filenames for the files containing the Rho,Lambda,Sigma and Prop functions"
+        putStrLn "Remember: they must be in the current working directory"
+        putStrLn ""
+        
+        threadDelay 500000
+        
+        putStrLn "Input your Rho filename "
+        rhofilename <- getLine
+        putStrLn "Input your Lambda filename "
+        lambdafilename <- getLine
+        putStrLn "Input your Sigma filename "
+        sigmafilename <- getLine
+        putStrLn "Input your Prop filename "
+        propfilename <- getLine
+        
+        putStrLn ""
+        putStrLn "POPULATING PROPERTY GRAPH . . ."
+        putStrLn ""
+        
+        threadDelay 500000
+        
+        pg <- populate rhofilename lambdafilename sigmafilename propfilename
+        
+        putStrLn ""
+        putStrLn "DONE"
+        putStrLn ""
+        
+        threadDelay 500000
+        
+        showGraph pg
+        
+        threadDelay 1000000
+        
+        putStrLn ""
+        putStrLn "ADDING EDGE n3->n5"
+        putStrLn ""
+        
+        let pgEdge = addEdge pg "newedge" "n3" "n5"
+        
+        threadDelay 1000000
+        
+        showGraph pgEdge
+        
+        
