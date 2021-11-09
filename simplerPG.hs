@@ -2,6 +2,7 @@ import System.IO
 import Data.List 
 import Control.Monad
 import Control.Concurrent
+import Data.Maybe
 
 {-|
         NOT-SO-RANDOM NOTES:
@@ -19,6 +20,8 @@ import Control.Concurrent
         -> regulate what if value is None
         
         -> Date is to be implemented!!!!!!!!!
+        
+        -> when updating properties NO CHECK on the type (could modify PG or some other workaround)
 -}
 
 -------------------------------
@@ -129,7 +132,7 @@ labelLookup :: Identificator -> [ElementAndLabel] -> Label
 -- given an identificator and the list that maps ids and labels
 -- returns the corresponding label to the identificator
 
-labelLookup _ [] = ""
+labelLookup _ [] = "\0"
 labelLookup id ((currId,currLab):rest)
         | id == currId = currLab
         | otherwise = labelLookup id rest
@@ -204,6 +207,25 @@ showEdgeInfo ((name,n1,n2),label,props) = do
                                         let line = "(" ++ n1 ++ ")" ++ " -- " ++ name ++ "[" ++ label ++ "] --> " ++
                                                    "(" ++ n2 ++ ") {" ++ strProps ++ "}"
                                         putStrLn (id line)
+                                        
+--
+
+defProp :: PG -> PropertyAndValue -> PG
+
+-- given a property graph and an indentificator of an existing node/edge, an existing property and a valid value
+-- returns a property graph whose value for that property for that edge or node is value
+
+defProp (nodes,edges,labels,prop) newPropVal = (nodes,edges,labels,newProp)
+                                                where newProp = prop ++ [newPropVal]
+
+--
+
+defLabel :: PG -> ElementAndLabel -> Maybe PG
+
+defLabel (nodes,edges,labels,prop) (id,label)
+                          | labelLookup id labels == "\0" = Just (nodes,edges,labels ++ [(id,label)],prop)
+                          | otherwise = Nothing
+                                                
 -------------------------------
 ---------PG FUNCTIONS----------
 -------------------------------
@@ -231,6 +253,8 @@ populate rhofilename lambdafilename sigmafilename propfilename  = do
 
                                 return (nodesSet, edges, lambda, propertiesAndValues)
                                 
+--
+                                
 addEdge :: PG -> Identificator -> Node -> Node -> PG
 
 -- given a PG, an unused edge id. and n1,n2 existing nodes where the edge n1->n2 does not exist
@@ -238,6 +262,8 @@ addEdge :: PG -> Identificator -> Node -> Node -> PG
 
 addEdge (nodes,edges,l,p) id n1 n2 = (nodes,edgesPlus,l,p)
                                 where edgesPlus = edges ++ [(id,n1,n2)]
+                                
+--
 
 showGraph :: PG -> IO ()
 
@@ -253,7 +279,42 @@ showGraph (nodes,edges,labels,properties) = do
                                 let edgesInfo = map (getEdgeInfo labels properties) edges
                                 mapM showEdgeInfo edgesInfo     -- MONAD MAP
                                 
-                                putStrLn ""
+                                putStrLn ""                          
+--
+                                
+defVprop :: PG -> Node -> (Property,Val) -> PG
+
+-- given a property graph, an existing node and property, and a valid value
+-- it returns a property graph whose value for that property for the node is value
+
+defVprop pg id (prop,val) = defProp pg (id,prop,val)
+                                
+--
+
+defEprop :: PG -> Edge -> (Property,Val) -> PG
+
+-- given a property graph, an existing edge and property, and a valid value
+-- it returns a property graph whose value for that property for the edge is value
+
+defEprop pg (id,_,_) (prop,val) = defProp pg (id,prop,val)
+                                
+--
+
+defVlabel :: PG -> Node -> Label -> Maybe PG
+
+-- given a property graph, an existing node and a label 
+-- it returns a property graph with said node labeled OR Nothing if the node was already labeled 
+
+defVlabel pg id label = defLabel pg (id,label)
+
+--
+
+defElabel :: PG -> Edge -> Label -> Maybe PG
+
+-- given a property graph, an existing edge and a label 
+-- it returns a property graph with said edge labeled OR Nothing if the edge was already labeled 
+
+defElabel pg (id,_,_) label = defLabel pg (id,label)
                                 
 -------------------------------
 --------QUERY FUNCTIONS--------
@@ -317,5 +378,13 @@ main = do
         threadDelay 1000000
         
         showGraph pgEdge
+        
+        -- test updates AND COMMENT THE LABELING
+        
+        let mpg = fromMaybe pgEdge (defElabel pgEdge ("newedge","n3","n5") "tuco")
+        
+        showGraph mpg
+        
+        putStrLn "end"
         
         
