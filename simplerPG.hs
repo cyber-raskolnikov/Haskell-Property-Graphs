@@ -6,22 +6,22 @@ import Data.Maybe
 
 {-|
         NOT-SO-RANDOM NOTES:
-        -> to this moment, I'm not considering the existence of isolated nodes
+        ->  the existence of isolated nodes is not considered,
         that is, I'm taking as {V u E} the elements of the rho file.
         
-        -> this is a simpler, more 'contents-of-the-files-like' version of my initial idea
-        this is because the the initial, more Object-Oriented, version is not only more difficult to implement
-        but also has a bigger overhead when creating (populating) the PG.
-        
         -> by requirement, populate has to use IO, 
-        but this violates the principle of aggregating the IO action into the main function
-        also this forces us to return IO PG
+        this forces us to return IO PG in populate, slightly deviating from the specification demands
         
-        -> regulate what if value is None
+        -> overall, some slight deviations from the practice task demands have been implemented,
+        as the specification is somewhat loose and teachers have pointed out it should be treated
+        as a non-strict guideline
         
-        -> Date is to be implemented!!!!!!!!!
+        -> PENDING JP RESPONSE --> CHANGE DOC ON THIS AND QUERY FUNCTIONSabout returning the Val type on the query functions, it would have been possible to do so and print it
+        in a proper way, initially I thought about doing so, but the task specifically demands this not to be done.
+        Instead, the Val type contents will be returned as Strings at those functions.
         
-        -> when updating properties NO CHECK on the type (could modify PG or some other workaround)
+        -> the Date type is treated as a String
+        
 -}
 
 -------------------------------
@@ -32,15 +32,15 @@ type Label = String
 
 type Property = String
 
-type Identificator = String
+type Identifier = String -- this type definition is useful, as it allows to refer to both nodes and edges
 
-type Node = Identificator
+type Node = Identifier
 
-type Edge =  (Identificator,Node,Node)
+type Edge =  (Identifier,Node,Node)
 
-type PropertyAndValue = (Identificator,Property,Val)
+type PropertyAndValue = (Identifier,Property,Val)
 
-type ElementAndLabel = (Identificator,Label)
+type ElementAndLabel = (Identifier,Label)
 
 type PG = ([Node],[Edge],[ElementAndLabel],[PropertyAndValue])
 
@@ -127,7 +127,7 @@ getPropAndValues sigma prop = [(identificator,property,(getVal valtype value))
                                 
 --
 
-labelLookup :: Identificator -> [ElementAndLabel] -> Label
+labelLookup :: Identifier -> [ElementAndLabel] -> Label
 
 -- given an identificator and the list that maps ids and labels
 -- returns the corresponding label to the identificator
@@ -139,7 +139,7 @@ labelLookup id ((currId,currLab):rest)
         
 --
         
-propsLookup :: Identificator -> [PropertyAndValue] -> [(Property,Val)]          -- ESTO ES SIGMA PRIMA
+propsLookup :: Identifier -> [PropertyAndValue] -> [(Property,Val)]
 
 -- given an indentificator and the list that maps ids to their properties & values
 -- returns the list of tuples (property,value) corresponding to the given id
@@ -255,13 +255,14 @@ populate rhofilename lambdafilename sigmafilename propfilename  = do
                                 
 --
                                 
-addEdge :: PG -> Identificator -> Node -> Node -> PG
+addEdge :: PG -> Identifier -> Node -> Node -> PG
 
--- given a PG, an unused edge id. and n1,n2 existing nodes where the edge n1->n2 does not exist
+-- given a PG, an unused edge id. and existing (or not) nodes n1,n2 where the edge n1->n2 does not exist
 -- it returns the original PG with a new edge named id. from the first node to the second
 
-addEdge (nodes,edges,l,p) id n1 n2 = (nodes,edgesPlus,l,p)
+addEdge (nodes,edges,l,p) id n1 n2 = (nodesPlus,edgesPlus,l,p)
                                 where edgesPlus = edges ++ [(id,n1,n2)]
+                                      nodesPlus = setify (nodes ++ [n1,n2])
                                 
 --
 
@@ -319,6 +320,41 @@ defElabel pg (id,_,_) label = defLabel pg (id,label)
 -------------------------------
 --------QUERY FUNCTIONS--------
 -------------------------------
+
+sigmaPrima :: PG -> Identifier -> [(Property,Val)]
+
+-- given a property graph and an identifier
+-- it returns the set of properties and values related to the identifier
+-- with the values represented as strings
+
+sigmaPrima (_,_,_,properties) id = stringedPropsLookup
+                              where stringedPropsLookup = (propsLookup id properties)
+                              
+--
+
+propV :: PG -> Int -> Property -> [(Label,Val)]
+
+-- given a property graph, a natural number and a property
+-- returns the first k (or less if not existing) pairs (label(v),value)
+-- where v is a node having the said property defined, and value is that node's said property value
+
+propV (nodes,edges,labels,properties) k wantedProp = take k listLabelVal
+        where listLabelVal = [(labelLookup node labels,valueProp) | node <- nodes,
+                                             (prop,valueProp) <- (sigmaPrima (nodes,edges,labels,properties) node),
+                                             wantedProp == prop]
+
+--
+
+propE :: PG -> Int -> Property -> [(Label,Val)]
+
+-- given a property graph, a natural number and a property
+-- returns the first k (or less if not existing) pairs (label(e),value)
+-- where e is an edge having the said property defined, and value is that edge's said property value
+
+propE (nodes,edges,labels,properties) k wantedProp = take k listLabelVal
+        where listLabelVal = [(labelLookup edgeID labels,valueProp) | (edgeID,_,_) <- edges,
+                                             (prop,valueProp) <- (sigmaPrima (nodes,edges,labels,properties) edgeID),
+                                             wantedProp == prop]
 
 -------------------------------
 ---------MAIN FUNCTION---------
@@ -384,6 +420,10 @@ main = do
         let mpg = fromMaybe pgEdge (defElabel pgEdge ("newedge","n3","n5") "tuco")
         
         showGraph mpg
+        
+        let res = propE mpg 2 "canSing"
+        
+        putStrLn $ show res
         
         putStrLn "end"
         
