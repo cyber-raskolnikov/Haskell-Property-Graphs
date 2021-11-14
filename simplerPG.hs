@@ -22,6 +22,8 @@ import Data.Maybe
         
         -> the Date type is treated as a String
         
+        -> a (very small) concession has been taken on the 120-characters long code lines so I could add some ASCII art
+        
 -}
 
 -------------------------------
