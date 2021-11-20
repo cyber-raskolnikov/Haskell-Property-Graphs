@@ -1,5 +1,5 @@
 import System.IO
-import Data.List 
+import Data.List
 import Control.Monad
 import Control.Concurrent
 import Data.Maybe
@@ -16,9 +16,9 @@ import Data.Maybe
         as the specification is somewhat loose and teachers have pointed out it should be treated
         as a non-strict guideline
         
-        -> PENDING JP RESPONSE --> CHANGE DOC ON THIS AND QUERY FUNCTIONSabout returning the Val type on the query functions, it would have been possible to do so and print it
-        in a proper way, initially I thought about doing so, but the task specifically demands this not to be done.
-        Instead, the Val type contents will be returned as Strings at those functions.
+        -> about returning the Val type on the query functions,
+        I have implemented the Val type in such a way that when printing (show function) the result of the queries,
+        it will be displayed correctly.
         
         -> the Date type is treated as a String
         
@@ -50,7 +50,7 @@ type PG = ([Node],[Edge],[ElementAndLabel],[PropertyAndValue])
 -------DATA DECLARATIONS-------
 -------------------------------
 
-data Val = IntValue Int | DecValue Double | Text String | Binary Bool -- | Date
+data Val = IntValue Int | DecValue Double | Text String | Binary Bool deriving Eq-- | Date
 
 -------------------------------
 -----INSTANCE DECLARATIONS-----
@@ -140,7 +140,19 @@ labelLookup id ((currId,currLab):rest)
         | otherwise = labelLookup id rest
         
 --
-        
+
+propLookup :: Identifier -> Property -> [PropertyAndValue] -> Maybe Val
+
+-- given an indentificator, a property and the list that maps ids to their properties & values
+-- returns the value for the property corresponding to the given id
+
+propLookup _ prop [] = Nothing
+propLookup id prop ((currId,currProp,currVal):rest)
+                | (id == currId && prop == currProp) = Just currVal
+                | otherwise = propLookup id prop rest
+
+--
+      
 propsLookup :: Identifier -> [PropertyAndValue] -> [(Property,Val)]
 
 -- given an indentificator and the list that maps ids to their properties & values
@@ -327,7 +339,6 @@ sigmaPrima :: PG -> Identifier -> [(Property,Val)]
 
 -- given a property graph and an identifier
 -- it returns the set of properties and values related to the identifier
--- with the values represented as strings
 
 sigmaPrima (_,_,_,properties) id = stringedPropsLookup
                               where stringedPropsLookup = (propsLookup id properties)
@@ -357,6 +368,54 @@ propE (nodes,edges,labels,properties) k wantedProp = take k listLabelVal
         where listLabelVal = [(labelLookup edgeID labels,valueProp) | (edgeID,_,_) <- edges,
                                              (prop,valueProp) <- (sigmaPrima (nodes,edges,labels,properties) edgeID),
                                              wantedProp == prop]
+                                             
+--
+
+reachable_aux :: PG -> [Node] -> Label -> Node -> Node -> Bool
+
+-- given a property graph, a label and existing ending and starting nodes (MIND THE ORDER)
+-- returns the boolean value stating whether a path exists from the starting to ending node
+-- where all edge's labels are the given label
+-- while taking into account a visited nodes list
+
+reachable_aux (nodes,edges,labels,properties) exclusionList label end start
+        | end == start = True
+        | otherwise = or ( map (reachable_aux (nodes,edges,labels,properties) visitedNodes label end) possibleNodes )
+                        where possibleNodes = [posNode | (edgeid,start_aux,posNode) <- edges,
+                                                         (edgeid2,label_aux) <- labels,
+                                                         (start_aux == start 
+                                                         && label == label_aux
+                                                         && edgeid == edgeid2 
+                                                         && not (elem posNode exclusionList))]
+                              visitedNodes = exclusionList++possibleNodes++[start]
+                              
+reachable :: PG -> Label -> Node -> Node -> Bool
+
+-- given a property graph, a label and existing ending and starting nodes 
+-- returns the boolean value stating whether a path exists from the starting to ending node
+-- where all edge's labels are the given label
+
+reachable (nodes,edges,labels,properties) label start end = 
+        reachable_aux (nodes,edges,labels,properties) [] label end start
+        
+--
+
+kHops :: PG -> Int -> Property -> (Val -> Val -> Bool) -> Val -> Node -> [(Node,Label,Val)]
+
+-- given a property graph, a number k of steps, a property, a function that takes 2 Val and outputs a boolean, a Val value and a starting node,
+-- it returns a set of (end node, their labels, their values for said property)
+-- given that a k-path exists from the starting node and each end node 
+-- AND that the function taking the Val value and the value for said property on the end node returns True
+
+kHops (nodes,edges,labels,properties) steps prop func referenceVal currNode
+        | steps == 0 && (isNothing valcurrNode || not (func referenceVal (fromJust valcurrNode))) = []
+        | steps == 0 && (func referenceVal (fromJust valcurrNode)) = [(currNode,labcurrNode,(fromJust valcurrNode))]
+        | otherwise = map head . group $ concatMap (kHops (nodes,edges,labels,properties) (steps-1) prop func referenceVal) neighbors
+        where labcurrNode = labelLookup currNode labels
+              valcurrNode = propLookup currNode prop properties
+              neighbors = [adjNode | (_,start_aux,adjNode) <- edges,
+                                     start_aux == currNode]
+
 
 -------------------------------
 ---------MAIN FUNCTION---------
@@ -374,11 +433,12 @@ main = do
         putStrLn "╚═╝░░░░░╚═╝░░╚═╝░╚════╝░╚═╝░░░░░╚══════╝╚═╝░░╚═╝░░░╚═╝░░░░░░╚═╝░░░  ░╚═════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝░░╚═╝"
         putStrLn ""
         
+        putStrLn "If you can't visualize the ASCII art on top of this line, resize your CLI."
+        putStrLn ""
         putStrLn "Add the filenames for the files containing the Rho,Lambda,Sigma and Prop functions"
         putStrLn "Remember: they must be in the current working directory"
         putStrLn ""
         
-        threadDelay 500000
         
         putStrLn "Input your Rho filename "
         rhofilename <- getLine
@@ -393,7 +453,6 @@ main = do
         putStrLn "POPULATING PROPERTY GRAPH . . ."
         putStrLn ""
         
-        threadDelay 500000
         
         pg <- populate rhofilename lambdafilename sigmafilename propfilename
         
@@ -401,19 +460,13 @@ main = do
         putStrLn "DONE"
         putStrLn ""
         
-        threadDelay 500000
-        
         showGraph pg
-        
-        threadDelay 1000000
         
         putStrLn ""
         putStrLn "ADDING EDGE n3->n5"
         putStrLn ""
         
         let pgEdge = addEdge pg "newedge" "n3" "n5"
-        
-        threadDelay 1000000
         
         showGraph pgEdge
         
@@ -426,6 +479,30 @@ main = do
         let res = propE mpg 2 "canSing"
         
         putStrLn $ show res
+        
+        putStrLn "TESTING REACHABLE"
+        
+        let res0 = reachable mpg "knows" "n1" "n3"
+        
+        putStrLn (show res0)
+        
+        putStrLn ""
+        putStrLn "ADDING EDGE n2->n3"
+        putStrLn ""
+        
+        let pgEdge2 = addEdge pg "test" "n2" "n3"
+        
+        let mpg2 = fromMaybe pgEdge2 (defElabel pgEdge2 ("test","n2","n3") "knows")
+        
+        showGraph mpg2
+        
+        let res = reachable mpg2 "knows" "n1" "n3"
+        
+        putStrLn (show res)
+        
+        putStrLn "TESTING K_HOPS"
+        
+        putStrLn (show (kHops mpg2 3 "gender" (==) (Text "male") "n1"))
         
         putStrLn "end"
         
