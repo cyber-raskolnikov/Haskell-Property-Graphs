@@ -22,9 +22,10 @@ import Data.Maybe
         
         -> the Date type is treated as a String
         
-        -> a (very small) concession has been taken on the 120-characters long code lines so I could add some ASCII art
+        -> a (small) concession has been taken on the 120-characters long code lines so I could add some ASCII art
         
-        -> some typos were corrected from the given test files
+        -> some typos were corrected from the given test files, so if you want to replicate the test results,
+        PLEASE EXECUTE THE SCRIPT WITH THE PROVIDED TEST FILES
         
 -}
 
@@ -231,8 +232,9 @@ defProp :: PG -> PropertyAndValue -> PG
 -- given a property graph and an indentificator of an existing node/edge, an existing property and a valid value
 -- returns a property graph whose value for that property for that edge or node is value
 
-defProp (nodes,edges,labels,prop) newPropVal = (nodes,edges,labels,newProp)
-                                                where newProp = prop ++ [newPropVal]
+defProp (nodes,edges,labels,prop) (propId,propName,propVal) = (nodes,edges,labels,propMinus++[(propId,propName,propVal)])
+                                                where propMinus = [(id,name,val) | (id,name,val) <- prop,
+                                                                                 (propId /= id || propName /= name)]
 
 --
 
@@ -427,12 +429,12 @@ main :: IO ()
 
 main = do
         putStrLn ""
-        putStrLn "██████╗░██████╗░░█████╗░██████╗░███████╗██████╗░████████╗██╗░░░██╗  ░██████╗░██████╗░░█████╗░██████╗░██╗░░██╗"
-        putStrLn "██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗╚══██╔══╝╚██╗░██╔╝  ██╔════╝░██╔══██╗██╔══██╗██╔══██╗██║░░██║"
-        putStrLn "██████╔╝██████╔╝██║░░██║██████╔╝█████╗░░██████╔╝░░░██║░░░░╚████╔╝░  ██║░░██╗░██████╔╝███████║██████╔╝███████║"
-        putStrLn "██╔═══╝░██╔══██╗██║░░██║██╔═══╝░██╔══╝░░██╔══██╗░░░██║░░░░░╚██╔╝░░  ██║░░╚██╗██╔══██╗██╔══██║██╔═══╝░██╔══██║"
-        putStrLn "██║░░░░░██║░░██║╚█████╔╝██║░░░░░███████╗██║░░██║░░░██║░░░░░░██║░░░  ╚██████╔╝██║░░██║██║░░██║██║░░░░░██║░░██║"
-        putStrLn "╚═╝░░░░░╚═╝░░╚═╝░╚════╝░╚═╝░░░░░╚══════╝╚═╝░░╚═╝░░░╚═╝░░░░░░╚═╝░░░  ░╚═════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░░░░╚═╝░░╚═╝"
+        putStrLn "██████╗ ██████╗  ██████╗ ██████╗ ███████╗██████╗ ████████╗██╗   ██╗     ██████╗ ██████╗  █████╗ ██████╗ ██╗  ██╗███████╗██████╗ "
+        putStrLn "██╔══██╗██╔══██╗██╔═══██╗██╔══██╗██╔════╝██╔══██╗╚══██╔══╝╚██╗ ██╔╝    ██╔════╝ ██╔══██╗██╔══██╗██╔══██╗██║  ██║██╔════╝██╔══██╗"
+        putStrLn "██████╔╝██████╔╝██║   ██║██████╔╝█████╗  ██████╔╝   ██║    ╚████╔╝     ██║  ███╗██████╔╝███████║██████╔╝███████║█████╗  ██████╔╝"
+        putStrLn "██╔═══╝ ██╔══██╗██║   ██║██╔═══╝ ██╔══╝  ██╔══██╗   ██║     ╚██╔╝      ██║   ██║██╔══██╗██╔══██║██╔═══╝ ██╔══██║██╔══╝  ██╔══██╗"
+        putStrLn "██║     ██║  ██║╚██████╔╝██║     ███████╗██║  ██║   ██║      ██║       ╚██████╔╝██║  ██║██║  ██║██║     ██║  ██║███████╗██║  ██║"
+        putStrLn "╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═╝   ╚═╝      ╚═╝        ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝"
         putStrLn ""
         
         putStrLn "If you can't visualize the ASCII art on top of this line, resize your CLI."
@@ -459,53 +461,108 @@ main = do
         pg <- populate rhofilename lambdafilename sigmafilename propfilename
         
         putStrLn ""
-        putStrLn "DONE"
+        putStrLn "DONE:"
         putStrLn ""
         
         showGraph pg
         
+        --
+        
+        putStrLn "TESTING THE PROPERTY GRAPH STRUCTURAL FUNCTIONS"
+        
+        putStrLn "TESTING ADDEDGE:"
+        putStrLn "Adding a non-existing edge between existing nodes: n1 --> n10"
+        let pg1 = addEdge pg "testedge1" "n1" "n10"
+        
+        putStrLn "Adding a non-existing edge between non-existing nodes: Dani --> Guido van Rossum"
+        let pg2 = addEdge pg1 "testedge2" "Dani" "GuidovanRossum"
+        
+        showGraph pg2
+        putStrLn "Success: Both edges were added and in the case where the nodes didn't exist they were created, but they have no labels or properties"
+        
+        --
+        
+        putStrLn "TESTING DEFVPROP AND DEFEPROP"
+        putStrLn "Adding a value for a non-defined property of a node"
+        let pg3 = defVprop pg2 "Dani" ("homeTown",Text "Saigon")
+        putStrLn "Adding a value for a non-defined property of an edge"
+        let pg4 = defEprop pg3 ("testedge2","Dani","GuidovanRossum") ("since",Text "05-06-2018")
+        putStrLn "Updating a value for a defined property of a node"
+        let pg5 = defVprop pg4 "n1" ("homeTown",Text "Hanoi")
+        putStrLn "Updating a value for a defined property of an edge"
+        let pg6 = defEprop pg5 ("f1","n5","n7") ("since",Text "24-11-2021")
+        
+        showGraph pg6
+        putStrLn "Success: The nodes and edges properties were successfully set/updated"
+        
+        --
+        
+        putStrLn "TESTING DEFVLABEL AND DEFELABEL"
+        putStrLn "Adding a label for a non-labeled node"
+        let pg7 = defVlabel pg6 "Dani" "Person"
+        if isNothing pg7 then print "ERROR" else showGraph $ fromJust pg7
+        let pg77 = fromMaybe pg6 (defVlabel pg6 "Dani" "Person")
+        putStrLn "Adding a label for a non-labeled edge"
+        let pg8 = defElabel pg77 ("testedge2","Dani","GuidovanRossum") "follows"
+        if isNothing pg8 then print "ERROR" else showGraph $ fromJust pg8
+        let pg88 = fromMaybe pg77 (defElabel pg77 ("testedge2","Dani","GuidovanRossum") "follows")
+        
+        putStrLn "Adding a label to a labeled node"
+        let pg9 = defVlabel pg88 "Dani" "Pperson"
+        if isNothing pg9 then print "ERROR" else showGraph $ fromJust pg9
+        let pg99 = fromMaybe pg88 (defVlabel pg88 "Dani" "Person")
+        putStrLn "Adding a label to a labeled edge"
+        let pg10 = defElabel pg99 ("testedge2","Dani","GuidovanRossum") "follows"
+        if isNothing pg10 then print "ERROR" else showGraph $ fromJust pg10
+        let pg1010 = fromMaybe pg99 (defElabel pg99 ("testedge2","Dani","GuidovanRossum") "follows")
+        putStrLn "Success: As expected, one can only label unlabeled nodes/edges"
+        
+        --
         putStrLn ""
-        putStrLn "ADDING EDGE n3->n5"
-        putStrLn ""
+        putStrLn "TESTING THE PROPERTY GRAPH QUERY FUNCTIONS"
+        putStrLn "We will restart to the original test files Property Graph"
+        qpg <- populate rhofilename lambdafilename sigmafilename propfilename
+        showGraph qpg
         
-        let pgEdge = addEdge pg "newedge" "n3" "n5"
+        putStrLn "TESTING THE SIGMA PRIMA FUNCTION"
+        putStrLn "We want to retrieve the Property and Value pairs for node n5 and for edge e1 (has none)\n"
         
-        showGraph pgEdge
+        putStrLn $ "node n5: " ++ (show $ sigmaPrima qpg "n5")
+        putStrLn $ "edge e1: " ++ (show $ sigmaPrima qpg "e1")
         
-        -- test updates AND COMMENT THE LABELING
+        --
         
-        let mpg = fromMaybe pgEdge (defElabel pgEdge ("newedge","n3","n5") "tuco")
+        putStrLn "\nTESTING THE PROPV AND PROPE FUNCTION\n"
+        putStrLn $ "first 4 firstName of nodes: " ++ (show $ propV qpg 4 "firstName")
+        putStrLn $ "first 42 lastName of nodes: " ++ (show $ propV qpg 42 "lastName")
+        putStrLn $ "first 2 testing(non-existent) of edges: " ++ (show $ propE qpg 2 "testing")
+        putStrLn $ "first 5 date of edges: " ++ (show $ propE qpg 4 "date")
         
-        showGraph mpg
+        --
         
-        let res = propE mpg 2 "canSing"
+        putStrLn "\nTESTING THE KHOP FUNCTION"
+        putStrLn "In order to have a function to use with it, I have given the Val type the == operator\n"
         
-        putStrLn $ show res
+        putStrLn $ "Females reachable from n1 in 3 jumps : " ++
+         (show $ kHops qpg 3 "gender" (==) (Text "female") "n1")
+        putStrLn $ "Males reachable from n1 in 4 jumps : " ++
+         (show $ kHops qpg 4 "gender" (==) (Text "male") "n1")
+        putStrLn $ "Spaniards/Spanish Things reachable from n1 in 1 jumps : " ++
+         (show $ kHops qpg 1 "country" (==) (Text "Spain") "n1")
         
-        putStrLn "TESTING REACHABLE"
+        --
         
-        let res0 = reachable mpg "knows" "n1" "n3"
+        putStrLn "\nTESTING THE REACHABLE FUNCTION"
         
-        putStrLn (show res0)
+        putStrLn $ "Is n7 reachable from n1 by the 'follows' tag? : " ++
+         (show $ reachable qpg "follows" "n1" "n7")
+        putStrLn $ "Is n1 reachable from n7 by the 'follows' tag? : " ++
+         (show $ reachable qpg "follows" "n7" "n1")
+        putStrLn "The two previous tests indicate it can treat with loops\n"
         
-        putStrLn ""
-        putStrLn "ADDING EDGE n2->n3"
-        putStrLn ""
+        putStrLn $ "Is n8 reachable from n9 by the 'follows' tag? (n9 doesn't follow anyone) : " ++
+         (show $ reachable qpg "follows" "n9" "n8")
         
-        let pgEdge2 = addEdge pg "test" "n2" "n3"
-        
-        let mpg2 = fromMaybe pgEdge2 (defElabel pgEdge2 ("test","n2","n3") "knows")
-        
-        showGraph mpg2
-        
-        let res = reachable mpg2 "knows" "n1" "n3"
-        
-        putStrLn (show res)
-        
-        putStrLn "TESTING K_HOPS"
-        
-        putStrLn (show (kHops mpg2 3 "gender" (==) (Text "male") "n1"))
-        
-        putStrLn "end"
+        putStrLn "END OF THE TEST"
         
         

@@ -231,8 +231,10 @@ defProp :: PG -> PropertyAndValue -> PG
 -- given a property graph and an indentificator of an existing node/edge, an existing property and a valid value
 -- returns a property graph whose value for that property for that edge or node is value
 
-defProp (nodes,edges,labels,prop) newPropVal = (nodes,edges,labels,newProp)
-                                                where newProp = prop ++ [newPropVal]
+defProp (nodes,edges,labels,prop) (propName,propVal) = (nodes,edges,labels,newProp)
+                                                where propMinus = [(name,val) | (name,val) <- prop,
+                                                                                 propName /= name]
+                                                newProp = propMinus ++ [newPropVal]
 
 --
 
