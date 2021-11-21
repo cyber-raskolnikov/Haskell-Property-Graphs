@@ -1,13 +1,16 @@
 import System.IO
 import Data.List
 import Control.Monad
-import Control.Concurrent
 import Data.Maybe
 
 {-|
         NOT-SO-RANDOM NOTES:
         ->  the existence of isolated nodes is not considered,
         that is, I'm taking as {V u E} the elements of the rho file.
+        
+        -> about returning the Val type on the query functions,
+        I have implemented the Val type in such a way that when printing (show function) the result of the queries,
+        it will be displayed correctly.
         
         -> by requirement, populate has to use IO, 
         this forces us to return IO PG in populate, slightly deviating from the specification demands
@@ -16,22 +19,26 @@ import Data.Maybe
         as the specification is somewhat loose and teachers have pointed out it should be treated
         as a non-strict guideline
         
-        -> about returning the Val type on the query functions,
-        I have implemented the Val type in such a way that when printing (show function) the result of the queries,
-        it will be displayed correctly.
+        - I have forced myself to use first-order functions in several algorithms, so the program has a more functional tune,
+        there is also a heave use of comprehension lists, as I like to think in terms of those
         
         -> the Date type is treated as a String
         
         -> a (small) concession has been taken on the 120-characters long code lines so I could add some ASCII art
+        
+        -> the practice task description asked that 'For each query evaluated users must enter the real parameters and the result must print.'
+        but after a conversation with the responsible teacher, this requirement was dropped as long as we generated an informative test
         
         -> some typos were corrected from the given test files, so if you want to replicate the test results,
         PLEASE EXECUTE THE SCRIPT WITH THE PROVIDED TEST FILES
         
 -}
 
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 ---------TYPE SYNONYMS---------
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 
 type Label = String
 
@@ -49,25 +56,31 @@ type ElementAndLabel = (Identifier,Label)
 
 type PG = ([Node],[Edge],[ElementAndLabel],[PropertyAndValue])
 
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 -------DATA DECLARATIONS-------
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 
-data Val = IntValue Int | DecValue Double | Text String | Binary Bool deriving Eq-- | Date
+data Val = IntValue Int | DecValue Double | Text String | Binary Bool deriving Eq
 
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 -----INSTANCE DECLARATIONS-----
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 
 instance Show Val where
         show (IntValue int) = show int
         show (DecValue double) = show double
         show (Text text) = show text
         show (Binary bool) = show bool
-        
--------------------------------
+       
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 ------AUXILIARY FUNCTIONS------
--------------------------------
+---------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
 
 setify :: [String] -> [String]
 
@@ -244,9 +257,11 @@ defLabel (nodes,edges,labels,prop) (id,label)
                           | labelLookup id labels == "\0" = Just (nodes,edges,labels ++ [(id,label)],prop)
                           | otherwise = Nothing
                                                 
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 ---------PG FUNCTIONS----------
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 
 populate :: String -> String -> String -> String -> IO PG
 
@@ -335,9 +350,11 @@ defElabel :: PG -> Edge -> Label -> Maybe PG
 
 defElabel pg (id,_,_) label = defLabel pg (id,label)
                                 
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 --------QUERY FUNCTIONS--------
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 
 sigmaPrima :: PG -> Identifier -> [(Property,Val)]
 
@@ -414,16 +431,19 @@ kHops :: PG -> Int -> Property -> (Val -> Val -> Bool) -> Val -> Node -> [(Node,
 kHops (nodes,edges,labels,properties) steps prop func referenceVal currNode
         | steps == 0 && (isNothing valcurrNode || not (func referenceVal (fromJust valcurrNode))) = []
         | steps == 0 && (func referenceVal (fromJust valcurrNode)) = [(currNode,labcurrNode,(fromJust valcurrNode))]
-        | otherwise = map head . group $ concatMap (kHops (nodes,edges,labels,properties) (steps-1) prop func referenceVal) neighbors
+        | otherwise = map head . group $ concatMap 
+        (kHops (nodes,edges,labels,properties) (steps-1) prop func referenceVal) neighbors
         where labcurrNode = labelLookup currNode labels
               valcurrNode = propLookup currNode prop properties
               neighbors = [adjNode | (_,start_aux,adjNode) <- edges,
                                      start_aux == currNode]
 
 
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 ---------MAIN FUNCTION---------
--------------------------------
+--------------------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------------------------
 
 main :: IO ()
 
@@ -468,7 +488,7 @@ main = do
         
         --
         
-        putStrLn "TESTING THE PROPERTY GRAPH STRUCTURAL FUNCTIONS"
+        putStrLn "TESTING THE PROPERTY GRAPH STRUCTURAL FUNCTIONS\n"
         
         putStrLn "TESTING ADDEDGE:"
         putStrLn "Adding a non-existing edge between existing nodes: n1 --> n10"
@@ -478,11 +498,11 @@ main = do
         let pg2 = addEdge pg1 "testedge2" "Dani" "GuidovanRossum"
         
         showGraph pg2
-        putStrLn "Success: Both edges were added and in the case where the nodes didn't exist they were created, but they have no labels or properties"
+        putStrLn "\nSuccess: Both edges were added and in the case where the nodes didn't exist they were created"
         
         --
         
-        putStrLn "TESTING DEFVPROP AND DEFEPROP"
+        putStrLn "\nTESTING DEFVPROP AND DEFEPROP"
         putStrLn "Adding a value for a non-defined property of a node"
         let pg3 = defVprop pg2 "Dani" ("homeTown",Text "Saigon")
         putStrLn "Adding a value for a non-defined property of an edge"
@@ -497,25 +517,25 @@ main = do
         
         --
         
-        putStrLn "TESTING DEFVLABEL AND DEFELABEL"
-        putStrLn "Adding a label for a non-labeled node"
+        putStrLn "\nTESTING DEFVLABEL AND DEFELABEL"
+        putStrLn "Adding a label for a non-labeled node : Dani[Person]"
         let pg7 = defVlabel pg6 "Dani" "Person"
         if isNothing pg7 then print "ERROR" else showGraph $ fromJust pg7
         let pg77 = fromMaybe pg6 (defVlabel pg6 "Dani" "Person")
-        putStrLn "Adding a label for a non-labeled edge"
+        putStrLn "Adding a label for a non-labeled edge : Dani --follows--> GuidovanRossum"
         let pg8 = defElabel pg77 ("testedge2","Dani","GuidovanRossum") "follows"
         if isNothing pg8 then print "ERROR" else showGraph $ fromJust pg8
         let pg88 = fromMaybe pg77 (defElabel pg77 ("testedge2","Dani","GuidovanRossum") "follows")
         
-        putStrLn "Adding a label to a labeled node"
+        putStrLn "Adding a label to a labeled node : Dani[Person]"
         let pg9 = defVlabel pg88 "Dani" "Pperson"
         if isNothing pg9 then print "ERROR" else showGraph $ fromJust pg9
         let pg99 = fromMaybe pg88 (defVlabel pg88 "Dani" "Person")
-        putStrLn "Adding a label to a labeled edge"
+        putStrLn "Adding a label to a labeled edge : Dani --follows--> GuidovanRossum"
         let pg10 = defElabel pg99 ("testedge2","Dani","GuidovanRossum") "follows"
         if isNothing pg10 then print "ERROR" else showGraph $ fromJust pg10
         let pg1010 = fromMaybe pg99 (defElabel pg99 ("testedge2","Dani","GuidovanRossum") "follows")
-        putStrLn "Success: As expected, one can only label unlabeled nodes/edges"
+        putStrLn "\nSuccess: As expected, one can only label unlabeled nodes/edges"
         
         --
         putStrLn ""
@@ -540,7 +560,7 @@ main = do
         
         --
         
-        putStrLn "\nTESTING THE KHOP FUNCTION"
+        putStrLn "\nTESTING THE K-HOPS FUNCTION"
         putStrLn "In order to have a function to use with it, I have given the Val type the == operator\n"
         
         putStrLn $ "Females reachable from n1 in 3 jumps : " ++
@@ -563,6 +583,6 @@ main = do
         putStrLn $ "Is n8 reachable from n9 by the 'follows' tag? (n9 doesn't follow anyone) : " ++
          (show $ reachable qpg "follows" "n9" "n8")
         
-        putStrLn "END OF THE TEST"
+        putStrLn "\nEND OF THE TEST"
         
         
