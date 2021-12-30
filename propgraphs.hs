@@ -29,8 +29,7 @@ import Data.Maybe
         -> the practice task description asked that 'For each query evaluated users must enter the real parameters and the result must print.'
         but after a conversation with the responsible teacher, this requirement was dropped as long as we generated an informative test
         
-        -> some typos were corrected from the given test files, so if you want to replicate the test results,
-        PLEASE EXECUTE THE SCRIPT WITH THE PROVIDED TEST FILES
+        -> some typos were found on the test files, we fool-proofed the types declaration by taking them as strings when not recognized
         
 -}
 
@@ -503,13 +502,13 @@ main = do
         --
         
         putStrLn "\nTESTING DEFVPROP AND DEFEPROP"
-        putStrLn "Adding a value for a non-defined property of a node"
+        putStrLn "Adding a value for a non-defined property of a node : Dani {hometown : Saigon}"
         let pg3 = defVprop pg2 "Dani" ("homeTown",Text "Saigon")
-        putStrLn "Adding a value for a non-defined property of an edge"
+        putStrLn "Adding a value for a non-defined property of an edge : testedge2 {since : 05-06-2018}"
         let pg4 = defEprop pg3 ("testedge2","Dani","GuidovanRossum") ("since",Text "05-06-2018")
-        putStrLn "Updating a value for a defined property of a node"
+        putStrLn "Updating a value for a defined property of a node : n1 {hometown : Hanoi}"
         let pg5 = defVprop pg4 "n1" ("homeTown",Text "Hanoi")
-        putStrLn "Updating a value for a defined property of an edge"
+        putStrLn "Updating a value for a defined property of an edge : f1 {since : 24-11-2021}"
         let pg6 = defEprop pg5 ("f1","n5","n7") ("since",Text "24-11-2021")
         
         showGraph pg6

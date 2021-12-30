@@ -8,7 +8,7 @@ lastName    String
 gender    String
 homeTown    String
 homeCountry    String
-birthDay    Date
+birthday    Date
 workPlace    String
 workPosition    String
 city    String

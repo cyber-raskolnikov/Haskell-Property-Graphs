@@ -1,6 +1,6 @@
 n1    firstName    Joan
 n1    lastName    Canals
-n1    gender    Male
+n1    gender    male
 n1    birthday    12-07-95
 n1    homeTown    Barcelona
 n2    firstName    Rosa
@@ -35,7 +35,7 @@ n8    country    Venezuela
 n9    firstName    Tomas
 n9    lastName    Coll
 n9    country    Spain
-n10    firstName    Josep
+n10    fistName    Josep
 n10    lastName    Garcia
 n10    gender    male
 p1    workPlace    Google
